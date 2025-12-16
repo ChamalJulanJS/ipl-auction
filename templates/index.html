@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IPL Auction Simulator</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <style>
+        body { background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%); background-attachment: fixed; font-family: 'Segoe UI', sans-serif; overflow-x: hidden; color: white; }
+        .auction-stage { background: white; border-radius: 15px; box-shadow: 0 15px 35px rgba(0,0,0,0.3); padding: 30px; margin-bottom: 30px; text-align: center; color: #333; }
+        .player-card h1 { font-weight: 800; color: #2c3e50; font-size: 3.5rem; margin: 10px 0; }
+        .price-tag { font-size: 4rem; font-weight: 900; color: #2980b9; margin: 15px 0; }
+        .current-holder-box { background-color: #e8f4fd; border: 2px dashed #3498db; padding: 15px; border-radius: 10px; display: inline-block; margin-bottom: 20px; min-width: 300px; color: #333; }
+        .team-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 15px; padding-bottom: 50px; }
+        .team-card { border-radius: 12px; color: white; position: relative; overflow: hidden; box-shadow: 0 8px 20px rgba(0,0,0,0.4); min-height: 220px; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.2s; border: 1px solid rgba(255,255,255,0.1); }
+        .team-card:hover { transform: translateY(-5px); box-shadow: 0 12px 25px rgba(0,0,0,0.5); }
+        .team-header-bar { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; background: rgba(0, 0, 0, 0.25); backdrop-filter: blur(5px); border-bottom: 1px solid rgba(255,255,255,0.15); }
+        .header-left { display: flex; align-items: center; gap: 10px; }
+        .team-logo-img { width: 45px; height: 45px; object-fit: contain; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.5)); }
+        .team-name-text { font-weight: 900; font-size: 1.2rem; text-transform: uppercase; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,0.3); line-height: 1; }
+        .bid-btn-header { background: #28a745; color: white; border: none; padding: 5px 15px; border-radius: 20px; font-weight: bold; font-size: 0.9rem; text-decoration: none; text-transform: uppercase; box-shadow: 0 3px 6px rgba(0,0,0,0.3); transition: all 0.2s; display: flex; align-items: center; gap: 5px; }
+        .bid-btn-header:hover { background: #218838; transform: scale(1.05); box-shadow: 0 0 10px #28a745; color: white; }
+        .card-body-content { padding: 15px; text-align: center; }
+        .budget-display { font-size: 1.6rem; font-weight: 900; margin-bottom: 5px; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
+        .budget-label { font-size: 0.75rem; opacity: 0.85; text-transform: uppercase; letter-spacing: 1px; }
+        .team-stats { display: flex; background: rgba(0,0,0,0.4); padding: 8px; font-size: 0.8rem; justify-content: space-between; margin-top: auto; }
+        .stat-box { text-align: center; flex: 1; border-right: 1px solid rgba(255,255,255,0.2); }
+        .stat-box:last-child { border-right: none; }
+        .stat-label { display: block; font-size: 0.65rem; opacity: 0.9; }
+        .stat-value { font-weight: bold; font-size: 1rem; }
+        .floating-reset { position: fixed; bottom: 30px; right: 30px; z-index: 9999; box-shadow: 0 4px 15px rgba(220, 53, 69, 0.4); }
+        .flag-img { width: 80px; height: auto; border-radius: 5px; margin-bottom: 10px; }
+        .flag-emoji { font-size: 4rem; }
+        .popup-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 10000; display: flex; justify-content: center; align-items: center; animation: fadeIn 0.3s ease-out; }
+        .popup-card { width: 500px; padding: 50px; border-radius: 30px; text-align: center; color: white; box-shadow: 0 20px 60px rgba(0,0,0,0.5); transform: scale(0.5); opacity: 0; border: 5px solid rgba(255,255,255,0.3); animation: zoomBounce 0.6s cubic-bezier(0.68, -0.55, 0.27, 1.55) forwards; position: relative; overflow: hidden; }
+        .popup-icon { font-size: 4rem; margin-bottom: 10px; }
+        .popup-title { font-size: 3.5rem; font-weight: 900; margin: 0; }
+        .popup-sub { font-size: 1.8rem; opacity: 0.9; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes zoomBounce { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+        .confetti { position: absolute; top: -20px; width: 15px; height: 15px; animation: fall linear forwards; opacity: 0.8; }
+        @keyframes fall { to { transform: translateY(600px) rotate(720deg); } }
+        .unsold-stamp { border: 8px solid #ff4d4d; color: #ff4d4d; background: rgba(255, 255, 255, 0.9); font-size: 3rem; font-weight: bold; padding: 10px 40px; transform: rotate(-15deg); display: inline-block; }
+
+        /* --- VIEW MODES --- */
+        {% if view_mode == 'display' %}
+            .bid-btn-header { display: none; } 
+            .floating-reset { display: none; }
+        {% endif %}
+        
+        {% if view_mode == 'admin' %}
+            .team-grid { opacity: 0.7; transform: scale(0.95); transform-origin: top center; }
+        {% endif %}
+    </style>
+</head>
+<body class="container-fluid py-4">
+
+    <script>
+        let currentId = {{ state_id }};
+        
+        setInterval(() => {
+            fetch('/check_update?t=' + new Date().getTime())
+                .then(r => r.json())
+                .then(data => {
+                    if (data.id > currentId) {
+                        location.reload(); 
+                    }
+                })
+                .catch(err => console.error("Sync Error:", err));
+        }, 100); // 100ms = 0.1 Seconds (INSTANT)
+    </script>
+
+    {% if popup %}
+    <div class="popup-overlay" id="actionPopup">
+        <div class="popup-card" style="background: {{ popup.gradient }};">
+            {% if popup.type == 'sold' %}
+                <div class="popup-icon">🔨</div>
+                <h1 class="popup-title">SOLD!</h1>
+                <div class="popup-sub">{{ popup.title }}</div>
+                <div class="mt-2 badge bg-light text-dark fs-4 shadow-sm">{{ popup.subtitle }}</div>
+            {% else %}
+                <div class="popup-icon">❌</div>
+                <div class="unsold-stamp">UNSOLD</div>
+            {% endif %}
+        </div>
+    </div>
+    <script>
+        setTimeout(function() { let el = document.getElementById('actionPopup'); if(el) { el.style.transition = "opacity 0.5s"; el.style.opacity = "0"; setTimeout(() => el.remove(), 500); } }, 3000);
+        {% if popup.type == 'sold' %}
+            const colors = ['#fff', '#ff0', '#0ff', '#f0f', 'gold'];
+            const container = document.querySelector('.popup-card');
+            for(let i=0; i<60; i++) { let c = document.createElement('div'); c.classList.add('confetti'); c.style.left = Math.random() * 100 + '%'; c.style.backgroundColor = colors[Math.floor(Math.random()*colors.length)]; c.style.animationDuration = (Math.random() * 1 + 1) + 's'; c.style.animationDelay = (Math.random() * 0.5) + 's'; container.appendChild(c); }
+        {% endif %}
+    </script>
+    {% endif %}
+
+    <div class="text-center mb-4">
+        <h2 class="fw-bold text-white"><i class="fa-solid fa-gavel"></i> IPL Auction Simulator</h2>
+        {% if view_mode == 'display' %}
+            <span class="badge bg-warning text-dark">DISPLAY VIEW</span>
+        {% else %}
+            <span class="badge bg-danger">ADMIN CONTROL</span>
+        {% endif %}
+    </div>
+
+    {% if view_mode != 'display' %}
+    <a href="/reset" class="btn btn-danger btn-lg rounded-pill floating-reset fw-bold px-4" onclick="return confirm('⚠️ RESET EVERYTHING?');"><i class="fa-solid fa-rotate-right"></i> RESET</a>
+    {% endif %}
+
+    {% if game_over %}
+        <div class="alert alert-success text-center py-5 shadow">
+            <h1 class="display-3">Auction Completed!</h1>
+            <p class="lead">Check the final squads below.</p>
+            {% if view_mode != 'display' %}
+            <a href="/reset" class="btn btn-warning btn-lg fw-bold mt-4 px-5 shadow-sm"><i class="fa-solid fa-rotate-right"></i> RESTART</a>
+            {% endif %}
+        </div>
+    {% else %}
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="auction-stage">
+                    <div class="d-flex justify-content-between">
+                        <span class="badge bg-primary fs-5">{{ player.set_name }}</span>
+                        <span class="badge bg-dark fs-6">{{ player.type }}</span>
+                    </div>
+
+                    <div class="player-card mt-2">
+                        {% if player.flag_url %}
+                            <img src="{{ player.flag_url }}" class="flag-img" alt="{{ player.country }}">
+                        {% else %}
+                            <div class="flag-emoji">{{ player.flag_emoji }}</div>
+                        {% endif %}
+                        
+                        <h1>{{ player.name }}</h1>
+                        <div class="text-uppercase text-muted fw-bold mb-3">{{ player.role }} | {{ player.country }}</div>
+                        <p class="text-muted">Base Price: ₹{{ player.base_price }} Cr</p>
+                        
+                        <div class="price-tag">₹{{ current_bid }} Cr</div>
+
+                        <div class="current-holder-box">
+                            {% if current_holder is not none %}
+                                <div class="small text-muted">Current Bidder</div>
+                                <strong style="color: {{ teams[current_holder].color }}; font-size: 1.5rem;">{{ teams[current_holder].name }}</strong>
+                            {% else %}
+                                <span class="text-muted fst-italic">No bids yet</span>
+                            {% endif %}
+                        </div>
+
+                        {% if view_mode != 'display' %}
+                        <div class="d-flex justify-content-center gap-3 mt-3">
+                            <a href="/pass" class="btn btn-outline-danger btn-lg px-5">Pass / Unsold</a>
+                            {% if current_holder is not none %}
+                                <a href="/sell" class="btn btn-success btn-lg px-5 fw-bold shadow">🔨 SOLD to {{ teams[current_holder].name }}</a>
+                            {% else %}
+                                <button class="btn btn-secondary btn-lg px-5 disabled">Waiting for Bid...</button>
+                            {% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    {% endif %}
+
+    <div class="team-grid">
+        {% for team in teams %}
+        <div class="team-card" style="background: {{ team.gradient }}; color: {{ team.text }};">
+            
+            <div class="team-header-bar">
+                <div class="header-left">
+                    <img src="{{ team.logo }}" class="team-logo-img" alt="{{ team.name }}" onerror="this.style.display='none';">
+                    <div class="team-name-text">{{ team.name }}</div>
+                </div>
+                
+                {% if not game_over and view_mode != 'display' %}
+                <a href="/bid/{{ team.id }}" class="bid-btn-header">
+                    <i class="fa-solid fa-gavel"></i>
+                </a>
+                {% endif %}
+            </div>
+
+            <div class="card-body-content">
+                <div class="budget-label">Funds Remaining</div>
+                <div class="budget-display">₹{{ "%.2f"|format(team.budget) }} Cr</div>
+            </div>
+            
+            <div class="team-stats">
+                <div class="stat-box">
+                    <span class="stat-label">Rem. Squad</span>
+                    <div class="stat-value">{{ 25 - team.total_slots_filled }}</div>
+                </div>
+                <div class="stat-box">
+                    <span class="stat-label">Rem. Overseas</span>
+                    <div class="stat-value">{{ 8 - team.overseas }}</div>
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</body>
+</html>
